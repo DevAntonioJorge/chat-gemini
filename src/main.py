@@ -1,98 +1,59 @@
-from google import genai
+import pandas as pd
 from dotenv import load_dotenv
+from google import genai
 import os
-import datetime
 
-load_dotenv()  
+load_dotenv()
 api_key = os.getenv("API_KEY")
+
+emotion_labels = {
+    1: 'Alegria', 2: 'Tristeza', 3: 'Raiva', 4: 'Medo',
+    5: 'Surpresa', 6: 'Nojo', 7: 'Amor', 8: 'Gratidão',
+    9: 'Esperança', 10: 'Frustração', 11: 'Ansiedade',
+    12: 'Calma', 13: 'Empolgação', 14: 'Decepção'
+}
 
 def handleClient():
     try:
         client = genai.Client(api_key=api_key)
         return client
     except Exception as e:
-        print(f'Érror:{e}')
-        
-        
-def handlePrompt() -> None:
-    while True:
-        try:
-            prompt = input("Digite algo: ")
-            return prompt
-        except Exception as e:
-            print(f'Error: {e}')
-            
-def handleResponse():
-    
-    client = handleClient()
-    prompt = handlePrompt()
+        print(f'Erro: {e}')
+
+def analisar_sentimento(texto, client):
     try:
+        prompt = f"Qual é a emoção predominante neste texto? \n\"{texto}\""
         response = client.models.generate_content(
             model='gemini-2.0-flash-001', contents=prompt
         )
-        
-        print(response.text)
-        return response.text
+        return response.text.strip()
     except Exception as e:
-        print(f"Error:{e}")
+        print(f"Erro ao analisar texto: {e}")
+        return None
 
+def processar_csv(caminho_csv):
+    client = handleClient()
+    df = pd.read_csv(caminho_csv)
+    print(f"\n📄 Lendo arquivo: {caminho_csv}\n")
 
-def save_response(response_text):
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"response_{timestamp}.txt"
-    filepath = os.path.join("src/archives", filename)
+    for index, row in df.iterrows():
+        texto = row['texto']
+        codigo_emocao = row['emocao']
+        nome_emocao = emotion_labels.get(codigo_emocao, 'Desconhecida')
 
-    if not os.path.exists("archives"):
-        os.makedirs("archives")
+        print(f"\n📝 Texto: {texto}")
+        print(f"🎯 Emoção esperada: {nome_emocao}")
 
-    try:
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(response_text)
-        print(f"Resposta salva em: {filepath}")
-    except Exception as e:
-        print(f"Erro ao salvar a resposta: {e}")
-        
-        
-def main():
-    while True:
-        response  = handleResponse()
-        save_response(response)
-        print('---------------------------------------------------')
-        try:
-            opts = input("Deseja continuar? (s/n): ").lower()
-            if opts == 'n':
-                break
-            
-            elif opts != 's':
-                print("Opção inválida, tente novamente.")
-        except Exception as e:
-            print(f'Error: {e}')
-            
+        resposta = analisar_sentimento(texto, client)
+        print(f"🤖 Gemini respondeu: {resposta}")
+        print("-" * 50)
+
 def menu():
-    while True:
-        
-        print('---------------------------------------------------')
-        print('Bem vindo ao Gemini Terminal Edition')
-        print('O que deseja fazer?')
-        print('1 - Executar o gemini\n2-Mostrar arquivos\n3 - Sair')
-        
-        try:
-            opts = int(input("Digite 1 ou 2: "))
-        except ValueError:
-            print('Digite Novamente')
-            
-        match(opts):
-            case 1:
-                main()
-            case 2:
-                print("Mostrando arquivos")
-                try:
-                    #TODO: Implementar o comando para mostrar os arquivos
-                    os.system('ls')
-                except Exception as e:
-                    print(f'Error: {e}')
-            case 3:
-                print("Volte sempre")
-                break
+    print("========= Análise de Sentimentos =========")
+    caminho = input("Digite o caminho do CSV: ")
+    if os.path.exists(caminho):
+        processar_csv(caminho)
+    else:
+        print("❌ Arquivo não encontrado.")
 
 menu()
